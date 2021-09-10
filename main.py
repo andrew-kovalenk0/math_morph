@@ -37,7 +37,7 @@ def change_border(image_, dx_0, dx_1, dy_0, dy_1, color):
     return image_
 
 
-def erase(image_, core_, point, step, border):
+def erose(image_, core_, point, step, border):
     image_buf = image_.copy()
     image_buf = change_border(image_buf, point[0], point[1], core_.shape[0] - point[0] - 1,
                               core_.shape[1] - point[1] - 1, border)
@@ -80,13 +80,13 @@ def dilate(image_, core_, point, step):
 
 image_png = Image.open('image.png')
 image = np.asarray(image_png)
-core_png = Image.open('struct.png')
+core_png = Image.open('core.png')
 core = np.asarray(core_png)
 
-dilate_image = dilate(image, core, [1, 1], 1)
+dilate_image = dilate(image, core, [2, 2], 1)
 dilate_image_png = Image.fromarray(dilate_image)
 dilate_image_png.save("dilate_image.png", "PNG")
 
-erase_image = erase(image, core, [1, 1], 1, 'white')
-erase_image_png = Image.fromarray(erase_image)
-erase_image_png.save("erase_image.png", "PNG")
+erose_image = erose(dilate_image, core, [2, 2], 1, 'white')
+erose_image_png = Image.fromarray(erose_image)
+erose_image_png.save("erose_image.png", "PNG")
