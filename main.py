@@ -1,5 +1,6 @@
 from PIL import Image
 import numpy as np
+import time
 
 
 def change_border(image_, dx_0, dx_1, dy_0, dy_1, color):
@@ -19,25 +20,27 @@ def change_border(image_, dx_0, dx_1, dy_0, dy_1, color):
         for _ in range(image_.shape[1] - 1):
             row.append([0, 0, 0])
         color = np.array([0, 0, 0])
-
     row = np.asarray(row)
     string = np.asarray(string)
-    for _ in range(dx_0):
-        image_ = np.insert(image_, 0, string, 0)
-        row = np.insert(row, 0, color, 0)
-    for _ in range(dy_0):
-        image_ = np.insert(image_, 0, row, 1)
-        string = np.insert(string, 0, color, 0)
-    for _ in range(dx_1):
-        image_ = np.insert(image_, image_.shape[0], string, 0)
-        row = np.insert(row, 0, color, 0)
-    for _ in range(dy_1):
-        image_ = np.insert(image_, image_.shape[1], row, 1)
 
+    for _ in range(dx_0):
+        image_ = np.insert(image_, 0, string, 1)
+        row = np.insert(row, 0, color, 0)
+
+    for _ in range(dy_0):
+        image_ = np.insert(image_, 0, row, 0)
+        string = np.insert(string, 0, color, 0)
+
+    for _ in range(dx_1):
+        image_ = np.insert(image_, image_.shape[1], string, 1)
+        row = np.insert(row, 0, color, 0)
+
+    for _ in range(dy_1):
+        image_ = np.insert(image_, image_.shape[0], row, 0)
     return image_
 
 
-def erose(image_, core_, point, step, border):
+def erode(image_, core_, point, step, border):
     image_buf = image_.copy()
     image_buf = change_border(image_buf, point[0], point[1], core_.shape[0] - point[0] - 1,
                               core_.shape[1] - point[1] - 1, border)
@@ -78,15 +81,18 @@ def dilate(image_, core_, point, step):
     return result_image
 
 
+start_time = time.time()
 image_png = Image.open('image.png')
 image = np.asarray(image_png)
 core_png = Image.open('core.png')
 core = np.asarray(core_png)
 
-dilate_image = dilate(image, core, [2, 2], 1)
-dilate_image_png = Image.fromarray(dilate_image)
-dilate_image_png.save("dilate_image.png", "PNG")
+# dilate_image = dilate(image, core, [2, 2], 1)
+# dilate_image_png = Image.fromarray(dilate_image)
+# dilate_image_png.save("dilate_image.png", "PNG")
 
-erose_image = erose(dilate_image, core, [2, 2], 1, 'white')
-erose_image_png = Image.fromarray(erose_image)
-erose_image_png.save("erose_image.png", "PNG")
+erode_image = erode(image, core, [2, 2], 1, 'white')
+erode_image_png = Image.fromarray(erode_image)
+erode_image_png.save("erode_image.png", "PNG")
+
+print(f'{(time.time() - start_time)} seconds')
