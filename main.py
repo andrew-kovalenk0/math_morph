@@ -2,6 +2,10 @@ from PIL import Image
 import numpy as np
 import time
 
+dilate_row = 0
+dilate_string = 0
+dilate_index = []
+
 
 def change_border(image_, dx_0, dx_1, dy_0, dy_1, color):
     if color == 'white':
@@ -68,31 +72,36 @@ def erode(image_, core_, point, step, border):
     return result_image
 
 
-def dilate(image_, core_, point, step):
-    result_image = image_.copy()
-    for i in range(0, image_.shape[0], step):
-        for j in range(0, image_.shape[1], step):
-            if (image[i][j] == [255, 255, 255]).all():
-                for ind_x, x in enumerate(range(i - point[0], i + core_.shape[0] - point[0])):
-                    for ind_y, y in enumerate(range(j - point[1], j + core_.shape[1] - point[1])):
-                        if (core_[ind_x][ind_y] == [255, 255, 255]).all():
-                            if 0 <= x < image_.shape[0] and 0 <= y < image_.shape[1]:
-                                result_image[x][y] = [255, 255, 255]
-    return result_image
+def dilate(image_, shape, point_, core_):
+    global dilate_string
+    global dilate_row
+    global dilate_image
+    if (image_ == [255, 255, 255]).all():
+        for ind_x, x in enumerate(range(dilate_string - point_[0], dilate_string + core_.shape[0] - point_[0])):
+            for ind_y, y in enumerate(range(dilate_row - point_[1], dilate_row + core_.shape[1] - point_[1])):
+                if (core_[ind_x][ind_y] == [255, 255, 255]).all():
+                    if 0 <= x < shape[0] and 0 <= y < shape[1]:
+                        dilate_image[x][y] = [255, 255, 255]
+    dilate_row += 1
+    if dilate_row == shape[1]:
+        dilate_row = 0
+        dilate_string += 1
 
 
+# -------------MAIN-------------- #
 start_time = time.time()
 image_png = Image.open('image.png')
 image = np.asarray(image_png)
 core_png = Image.open('core.png')
 core = np.asarray(core_png)
 
-# dilate_image = dilate(image, core, [2, 2], 1)
-# dilate_image_png = Image.fromarray(dilate_image)
-# dilate_image_png.save("dilate_image.png", "PNG")
+dilate_image = image.copy()
+np.apply_along_axis(dilate, 2, image, image.shape, [2, 2], core)
+dilate_image_png = Image.fromarray(dilate_image)
+dilate_image_png.save("dilate_image.png", "PNG")
 
-erode_image = erode(image, core, [2, 2], 1, 'white')
-erode_image_png = Image.fromarray(erode_image)
-erode_image_png.save("erode_image.png", "PNG")
+# erode_image = erode(image, core, [2, 2], 1, 'white')
+# erode_image_png = Image.fromarray(erode_image)
+# erode_image_png.save("erode_image.png", "PNG")
 
 print(f'{(time.time() - start_time)} seconds')
