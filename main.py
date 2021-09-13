@@ -1,9 +1,15 @@
 from PIL import Image
 import numpy as np
 import time
+import cv2
+from scipy import ndimage
 
 dilate_row = 0
 dilate_string = 0
+dilate_row_2 = 0
+dilate_string_2 = 0
+dilate_core_row = 0
+dilate_core_string = 0
 dilate_index = []
 
 
@@ -72,16 +78,34 @@ def erode(image_, core_, point, step, border):
     return result_image
 
 
+def dilate_2(_, core_, shape, point_):
+    global dilate_string_2
+    global dilate_row_2
+    global dilate_string
+    global dilate_row
+    global dilate_image
+    if (core_[dilate_row_2][dilate_string_2] == [255, 255, 255]).all():
+        dilate_image[dilate_row_2 + dilate_row - point_[0]][dilate_string_2 + dilate_string - point_[1]] = \
+            [255, 255, 255]
+        # print(f'[{dilate_row_2 + dilate_row - point_[0]} - {dilate_string_2 + dilate_string - point_[1]}]')
+    dilate_row_2 += 1
+    if dilate_row_2 == shape[1]:
+        dilate_row_2 = 0
+        dilate_string_2 += 1
+
+
 def dilate(image_, shape, point_, core_):
     global dilate_string
     global dilate_row
     global dilate_image
+    global dilate_row_2
+    global dilate_string_2
     if (image_ == [255, 255, 255]).all():
-        for ind_x, x in enumerate(range(dilate_string - point_[0], dilate_string + core_.shape[0] - point_[0])):
-            for ind_y, y in enumerate(range(dilate_row - point_[1], dilate_row + core_.shape[1] - point_[1])):
-                if (core_[ind_x][ind_y] == [255, 255, 255]).all():
-                    if 0 <= x < shape[0] and 0 <= y < shape[1]:
-                        dilate_image[x][y] = [255, 255, 255]
+        np.apply_along_axis(dilate_2, 2, image[dilate_row - point_[0]:dilate_row + core_.shape[0] - point_[0],
+                                               dilate_string - point_[1]:dilate_string + core_.shape[1] - point_[1]],
+                            core_, core_.shape, point_)
+    dilate_row_2 = 0
+    dilate_string_2 = 0
     dilate_row += 1
     if dilate_row == shape[1]:
         dilate_row = 0
@@ -89,19 +113,16 @@ def dilate(image_, shape, point_, core_):
 
 
 # -------------MAIN-------------- #
-start_time = time.time()
-image_png = Image.open('image.png')
-image = np.asarray(image_png)
-core_png = Image.open('core.png')
-core = np.asarray(core_png)
+image = cv2.imread('image.png')
+core = ndimage.generate_binary_structure(2, 1).astype('int')[..., np.newaxis] * [255, 255, 255]
 
 dilate_image = image.copy()
-np.apply_along_axis(dilate, 2, image, image.shape, [2, 2], core)
+start_time = time.time()
+np.apply_along_axis(dilate, 2, image, image.shape, [1, 1], core)
+print(f'{(time.time() - start_time)} seconds')
 dilate_image_png = Image.fromarray(dilate_image)
 dilate_image_png.save("dilate_image.png", "PNG")
 
 # erode_image = erode(image, core, [2, 2], 1, 'white')
 # erode_image_png = Image.fromarray(erode_image)
 # erode_image_png.save("erode_image.png", "PNG")
-
-print(f'{(time.time() - start_time)} seconds')
