@@ -2,116 +2,55 @@ from PIL import Image
 import numpy as np
 import time
 import cv2
+from numba import njit
 from scipy import ndimage
 
-dilate_row = 0
-dilate_string = 0
-dilate_row_2 = 0
-dilate_string_2 = 0
+
+def change_border(image_, dx_0, dx_1, dy_0, dy_1, color):
+    row = np.asarray([color] * image_.shape[0])
+    string = np.asarray([color] * image_.shape[1])
+
+    for _ in range(dx_0):
+        image_ = np.insert(image_, 0, string, 0)
+        row = np.insert(row, 0, color, 0)
+
+    for _ in range(dy_0):
+        image_ = np.insert(image_, 0, row, 1)
+        string = np.insert(string, 0, color, 0)
+
+    for _ in range(dx_1):
+        image_ = np.insert(image_, image_.shape[0], string, 0)
+        row = np.insert(row, 0, color, 0)
+
+    for _ in range(dy_1):
+        image_ = np.insert(image_, image_.shape[1], row, 1)
+    return image_
 
 
-# def change_border(image_, dx_0, dx_1, dy_0, dy_1, color):
-#     if color == 'white':
-#         row = [[255, 255, 255]]
-#         string = [[255, 255, 255]]
-#         for _ in range(image_.shape[0] - 1):
-#             string.append([255, 255, 255])
-#         for _ in range(image_.shape[1] - 1):
-#             row.append([255, 255, 255])
-#         color = np.array([255, 255, 255])
-#     else:
-#         row = [[0, 0, 0]]
-#         string = [[0, 0, 0]]
-#         for _ in range(image_.shape[0] - 1):
-#             string.append([0, 0, 0])
-#         for _ in range(image_.shape[1] - 1):
-#             row.append([0, 0, 0])
-#         color = np.array([0, 0, 0])
-#     row = np.asarray(row)
-#     string = np.asarray(string)
-#
-#     for _ in range(dx_0):
-#         image_ = np.insert(image_, 0, string, 1)
-#         row = np.insert(row, 0, color, 0)
-#
-#     for _ in range(dy_0):
-#         image_ = np.insert(image_, 0, row, 0)
-#         string = np.insert(string, 0, color, 0)
-#
-#     for _ in range(dx_1):
-#         image_ = np.insert(image_, image_.shape[1], string, 1)
-#         row = np.insert(row, 0, color, 0)
-#
-#     for _ in range(dy_1):
-#         image_ = np.insert(image_, image_.shape[0], row, 0)
-#     return image_
-#
-#
-# def erode(image_, core_, point, step, border):
-#     image_buf = image_.copy()
-#     image_buf = change_border(image_buf, point[0], point[1], core_.shape[0] - point[0] - 1,
-#                               core_.shape[1] - point[1] - 1, border)
-#     result_image = image_buf.copy()
-#     flag = 0
-#     white_index = []
-#     for i in range(point[0], image_buf.shape[0] - (core_.shape[0] - point[0] - 1), step):
-#         for j in range(point[1], image_buf.shape[1] - (core_.shape[1] - point[1] - 1), step):
-#             for ind_x, x in enumerate(range(i - point[0], i + core_.shape[0] - point[0])):
-#                 for ind_y, y in enumerate(range(j - point[1], j + core_.shape[1] - point[1])):
-#                     if (core_[ind_x][ind_y] == [255, 255, 255]).all():
-#                         if(image_buf[x][y] != [255, 255, 255]).all():
-#                             flag = 1
-#             if flag == 0:
-#                 white_index.append([i, j])
-#             else:
-#                 flag = 0
-#                 for ind_x, x in enumerate(range(i - point[0], i + core_.shape[0] - point[0])):
-#                     for ind_y, y in enumerate(range(j - point[1], j + core_.shape[1] - point[1])):
-#                         if (core_[ind_x][ind_y] == [255, 255, 255]).all():
-#                             result_image[x][y] = [0, 0, 0]
-#     for ind in white_index:
-#         result_image[ind[0]][ind[1]] = [255, 255, 255]
-#     result_image = result_image[point[0]:-(core_.shape[0] - point[0] - 1), point[1]:-(core_.shape[1] - point[1] - 1)]
-#     return result_image
-
-
-def dilate_2(_, core_, shape, point_, ch_point):
-    global dilate_string_2
-    global dilate_row_2
-    global dilate_image
-    if (core_[dilate_string_2][dilate_row_2] == [255, 255, 255]).all():
-        dilate_image[dilate_string_2 + ch_point[1] - point_[1]][dilate_row_2 + ch_point[0] - point_[0]] = \
-            [255, 255, 255]
-    dilate_row_2 += 1
-    if dilate_row_2 == shape[1]:
-        dilate_row_2 = 0
-        dilate_string_2 += 1
-
-
-def dilate(image_, shape, point_, core_):
-    global dilate_string
-    global dilate_row
-    global dilate_row_2
-    global dilate_string_2
-    if (image_ == [255, 255, 255]).all():
-        np.apply_along_axis(dilate_2, 2, image[dilate_string - point_[1]:dilate_string + core_.shape[1] - point_[1],
-                                               dilate_row - point_[0]:dilate_row + core_.shape[0] - point_[0]],
-                            core_, core_.shape, point_, [dilate_row, dilate_string])
-    dilate_row_2 = 0
-    dilate_string_2 = 0
-    dilate_row += 1
-    if dilate_row == shape[1]:
-        dilate_row = 0
-        dilate_string += 1
+@njit
+def dilate(img, kernel, boun, dil_img):
+    img_v = img.shape[0]
+    img_h = img. shape[1]
+    kl_v = kernel.shape[0]
+    kl_h = kernel.shape[1]
+    kl_cn_v = kl_v // 2
+    kl_cn_h = kl_h // 2
+    for i in range(kl_cn_v, img_v - (kl_v - kl_cn_v - 1)):
+        for j in range(kl_cn_h, img_h - (kl_h - kl_cn_h - 1)):
+            dil_img[i - kl_cn_v, j - kl_cn_h] = np.max(img[i - kl_cn_v: i + kl_v - kl_cn_v,
+                                                           j - kl_cn_h: j + kl_h - kl_cn_h] * kernel)
+    return dil_img
 
 
 # -------------MAIN-------------- #
-image = cv2.imread('image.png')
-core = ndimage.generate_binary_structure(2, 1).astype('int')[..., np.newaxis] * [255, 255, 255]
+image = cv2.imread('image.png', 0)
+core = ndimage.generate_binary_structure(2, 1).astype('int')
+image = change_border(image, core.shape[0] // 2, core.shape[1] // 2,  core.shape[0] - core.shape[0] // 2 - 1,
+                      core.shape[0] - core.shape[1] // 2 - 1, 0)
 
 dilate_image = image.copy()
 start_time = time.time()
-np.apply_along_axis(dilate, 2, image, image.shape, [1, 1], core)
+dilate_image = dilate(image, core, 0, dilate_image)
 print(f'{(time.time() - start_time)} seconds')
 dilate_image_png = Image.fromarray(dilate_image)
 dilate_image_png.save("dilate_image.png", "PNG")
